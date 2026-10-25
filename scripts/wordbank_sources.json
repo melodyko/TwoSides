@@ -1,0 +1,56 @@
+[
+  {
+    "source": "jieba",
+    "repository": "fxsjy/jieba",
+    "commit": "67fa2e36e72f69d9134b8a1037b83fbb070b9775",
+    "path": "LICENSE",
+    "url": "https://raw.githubusercontent.com/fxsjy/jieba/67fa2e36e72f69d9134b8a1037b83fbb070b9775/LICENSE",
+    "bytes": 1075,
+    "sha256": "18ba0984839f85853b29fadaf992f7dba8fd0ca0fbeae34de2b8735222dc7a37"
+  },
+  {
+    "source": "jieba",
+    "repository": "fxsjy/jieba",
+    "commit": "67fa2e36e72f69d9134b8a1037b83fbb070b9775",
+    "path": "jieba/dict.txt",
+    "url": "https://raw.githubusercontent.com/fxsjy/jieba/67fa2e36e72f69d9134b8a1037b83fbb070b9775/jieba/dict.txt",
+    "bytes": 5071852,
+    "sha256": "7197c3211ddd98962b036cdf40324d1ea2bfaa12bd028e68faa70111a88e12a8"
+  },
+  {
+    "source": "thuocl",
+    "repository": "thunlp/THUOCL",
+    "commit": "a30ce79d895d01ab5132a5c74c29703ff7efb4cc",
+    "path": "LICENSE",
+    "url": "https://raw.githubusercontent.com/thunlp/THUOCL/a30ce79d895d01ab5132a5c74c29703ff7efb4cc/LICENSE",
+    "bytes": 1063,
+    "sha256": "db4b8cca414db4cf487b933d07a0514f77caf44f9f3d392f2bc9d7ba0d511c58"
+  },
+  {
+    "source": "thuocl",
+    "repository": "thunlp/THUOCL",
+    "commit": "a30ce79d895d01ab5132a5c74c29703ff7efb4cc",
+    "path": "data/THUOCL_animal.txt",
+    "url": "https://raw.githubusercontent.com/thunlp/THUOCL/a30ce79d895d01ab5132a5c74c29703ff7efb4cc/data/THUOCL_animal.txt",
+    "bytes": 320553,
+    "sha256": "bcdc95a32fe713d4bc32957ae26174e3b464908e318e821c9abb295e90249145"
+  },
+  {
+    "source": "thuocl",
+    "repository": "thunlp/THUOCL",
+    "commit": "a30ce79d895d01ab5132a5c74c29703ff7efb4cc",
+    "path": "data/THUOCL_food.txt",
+    "url": "https://raw.githubusercontent.com/thunlp/THUOCL/a30ce79d895d01ab5132a5c74c29703ff7efb4cc/data/THUOCL_food.txt",
+    "bytes": 144749,
+    "sha256": "084caa96ad4f976720003e9420097ba7cb5ddbb17f9f8c8f76bc4b8e0cc777fd"
+  },
+  {
+    "source": "thuocl",
+    "repository": "thunlp/THUOCL",
+    "commit": "a30ce79d895d01ab5132a5c74c29703ff7efb4cc",
+    "path": "data/THUOCL_chengyu.txt",
+    "url": "https://raw.githubusercontent.com/thunlp/THUOCL/a30ce79d895d01ab5132a5c74c29703ff7efb4cc/data/THUOCL_chengyu.txt",
+    "bytes": 166549,
+    "sha256": "c339d5d6e37d4f8ecdcb82f2a02b7fdfc66796f0a5215155f2aff8a77e89a7eb"
+  }
+]

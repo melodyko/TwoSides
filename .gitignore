@@ -1,0 +1,23 @@
+.build/
+.swiftpm/
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+.DS_Store
+__pycache__/
+
+# Local signing, device packages, diagnostics, and credentials
+*.mobileprovision
+*.provisionprofile
+*.p12
+*.p8
+*.key
+*.pem
+*.ipa
+*.xcarchive/
+*.xcresult/
+*.log
+.env
+.env.*
+!.env.example

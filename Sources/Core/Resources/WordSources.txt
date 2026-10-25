@@ -1,0 +1,70 @@
+两面猜 · 词库来源与说明
+
+内置 50,000 个不重复的词：原有 240 个基础词，加上 49,760 个扩展词。
+所有词都可离线使用。扩展词来自真实词典条目，没有通过拼接组合凑数量。
+
+来源
+• jieba 中文分词词典，作者 Sun Junyi，MIT 许可证。
+  https://github.com/fxsjy/jieba
+• THUOCL 清华大学开放中文词库，作者 THUNLP，MIT 许可证。
+  https://github.com/thunlp/THUOCL
+  使用其动物、饮食、成语分类词表。
+
+词条经过字数、词性、频率和有限排除表筛选，含生僻词、抽象词及专业词汇。
+尚未逐条人工审核，也不代表每个词都适合比划；遇到不熟悉的词可以跳过。
+上游类别标注也可能存在歧义。更适合日常暖场的原有词条仍保留在各自分类中。
+
+抽词规则
+每次开局只洗牌一次，整局内两队、多个回合都不会重复答案。
+答对、跳过，以及已展示但未作答的词，都视为用过。
+所选词全部用完时提前结束本局并保留比分。另开一局会重新洗牌，可能遇到以前玩过的词。
+不把不同别称、繁简体或近义词当作同一个概念。
+
+完整版本、哈希和筛选规则见项目 WORD_BANK.md 与 scripts/wordbank_sources.json。
+
+第三方许可原文
+
+jieba
+The MIT License (MIT)
+
+Copyright (c) 2013 Sun Junyi
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+THUOCL
+MIT License
+
+Copyright (c) 2018 THUNLP
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

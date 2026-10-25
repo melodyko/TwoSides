@@ -1,0 +1,2 @@
+# THUOCL has no POS tag: the final empty TSV column is an intentional trailing tab.
+Data/wordbank-provenance.tsv whitespace=-blank-at-eol

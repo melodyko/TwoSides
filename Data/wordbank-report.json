@@ -1,0 +1,31 @@
+{
+  "total": 50000,
+  "classic": 240,
+  "expanded": 49760,
+  "categories": {
+    "actions": 40,
+    "animals": 596,
+    "daily": 40,
+    "food": 3004,
+    "general": 40193,
+    "idioms": 6087,
+    "movies": 40
+  },
+  "sources": {
+    "jieba": 40193,
+    "thuocl:animal": 556,
+    "thuocl:chengyu": 6047,
+    "thuocl:food": 2964
+  },
+  "expanded_sha256": "fbb91cdf030e7c486dc16c7f620f15c1234a873d81d26059d5fd864273b715d2",
+  "source_manifest": "scripts/wordbank_sources.json",
+  "filter_rules": "scripts/wordbank_exclusions.json",
+  "filter_counts": {
+    "category_mismatch": 94,
+    "duplicate": 3288,
+    "format_or_exclusion": 33,
+    "malformed_upstream": 3
+  },
+  "minimum_selected_jieba_frequency": 24,
+  "quality_note": "按格式、词性、频率和有限排除表初筛；尚未逐条人工审核，不保证全部易猜或分类准确。"
+}
