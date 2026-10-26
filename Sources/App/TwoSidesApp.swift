@@ -16,6 +16,7 @@ struct PartyRootView: View {
     @State private var accessoryAvailable = false
     @State private var cameraRequested = false
     @State private var cameraRequestID = 0
+    @State private var cameraPreviewExpanded = true
     @State private var deviceClosed = false
     @State private var showPreview = false
     @State private var showExitConfirmation = false
@@ -80,7 +81,12 @@ struct PartyRootView: View {
             if wasRunning && !running { game.pause() }
             updateAccessory()
         }
-        .onChange(of: camera.status) { _, _ in updateAccessory() }
+        .onChange(of: camera.status) { _, status in
+            if status == .running {
+                withAnimation(.easeInOut(duration: 0.2)) { cameraPreviewExpanded = false }
+            }
+            updateAccessory()
+        }
         .onChange(of: accessoryEnabled) { wasEnabled, enabled in
             if wasEnabled && !enabled { game.pause() }
         }
@@ -184,25 +190,49 @@ struct PartyRootView: View {
     }
 
     private var cameraBar: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 0) {
+            // Keep the same capture preview mounted when collapsed. Removing
+            // it would stop the session and disconnect Duo's audience display.
             CameraPreview(controller: camera)
                 .frame(width: 76, height: 64)
                 .background(PartyTheme.ink)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
+                .frame(width: cameraPreviewExpanded ? 76 : 0, height: cameraPreviewExpanded ? 64 : 0)
+                .clipped()
+                .opacity(cameraPreviewExpanded ? 1 : 0)
+                .padding(.trailing, cameraPreviewExpanded ? 12 : 0)
+                .allowsHitTesting(cameraPreviewExpanded)
                 .accessibilityLabel("相机实时预览，不录制")
+                .accessibilityHidden(!cameraPreviewExpanded)
             VStack(alignment: .leading, spacing: 4) {
                 Label(accessoryAvailable && camera.isRunning ? "外屏已就绪" : "面对面模式", systemImage: "camera.fill")
                     .font(.system(.caption, design: .rounded).bold())
-                Text(cameraStatus).font(.caption2).foregroundStyle(PartyTheme.secondary)
-                    .lineLimit(3).fixedSize(horizontal: false, vertical: true)
+                if cameraPreviewExpanded || camera.status != .running {
+                    Text(cameraStatus).font(.caption2).foregroundStyle(PartyTheme.secondary)
+                        .lineLimit(3).fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text("相机运行中 · 不录制").font(.caption2).foregroundStyle(PartyTheme.secondary)
+                }
             }
-            Spacer(minLength: 0)
+            Spacer(minLength: 8)
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { cameraPreviewExpanded.toggle() }
+            } label: {
+                Label(cameraPreviewExpanded ? "收起" : "预览",
+                      systemImage: cameraPreviewExpanded ? "chevron.down" : "chevron.up")
+                    .font(.caption.weight(.semibold))
+                    .frame(minHeight: 44).padding(.horizontal, 8)
+            }
+            .accessibilityLabel(cameraPreviewExpanded ? "收起相机预览" : "展开相机预览")
+            .accessibilityValue(cameraPreviewExpanded ? "已展开" : "已收起")
+            .accessibilityIdentifier("cameraPreviewToggle")
+            .disabled(camera.status != .running)
             Button { stopCamera() } label: { Image(systemName: "xmark").frame(width: 44, height: 44) }
                 .accessibilityLabel("关闭相机与外屏")
                 .accessibilityIdentifier("cameraClose")
                 .disabled(camera.status == .stopping)
         }
-        .padding(.horizontal, 20).padding(.vertical, 10)
+        .padding(.horizontal, 20).padding(.vertical, cameraPreviewExpanded ? 10 : 4)
         .background(PartyTheme.paper)
         .overlay(alignment: .top) { Rectangle().fill(PartyTheme.line).frame(height: 1) }
     }
@@ -225,6 +255,7 @@ struct PartyRootView: View {
         if camera.isRunning || cameraRequested { stopCamera(); return }
         cameraRequestID += 1
         let requestID = cameraRequestID
+        cameraPreviewExpanded = true
         cameraRequested = true
         Task {
             guard requestID == cameraRequestID, cameraRequested, camera.status != .stopping else { return }

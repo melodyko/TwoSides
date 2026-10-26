@@ -144,6 +144,16 @@ final class TwoSidesUITests: XCTestCase {
         for useCloseButton in [true, false, true, false] {
             tap(app.buttons["cameraToggle"], in: app)
             XCTAssertTrue(previewReady.waitForExistence(timeout: 15), "展开的 Duo 应启动相机并让外屏就绪")
+            let previewToggle = app.buttons["cameraPreviewToggle"]
+            XCTAssertEqual(previewToggle.value as? String, "已收起", "相机启动后预览应自动收起")
+            tap(previewToggle, in: app)
+            XCTAssertEqual(previewToggle.value as? String, "已展开")
+            XCTAssertTrue(previewReady.exists, "展开预览不能断开外屏")
+            if !useCloseButton {
+                tap(previewToggle, in: app)
+                XCTAssertEqual(previewToggle.value as? String, "已收起")
+                XCTAssertTrue(previewReady.exists, "收起预览不能断开外屏")
+            }
             let close = useCloseButton ? app.buttons["cameraClose"] : app.buttons["cameraToggle"]
             tap(close, in: app)
             let stopped = XCTNSPredicateExpectation(
@@ -176,6 +186,8 @@ final class TwoSidesUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["外屏已就绪"].waitForExistence(timeout: 15))
         tap(app.buttons["startGame"], in: app)
         waitUntilEnabled(app.buttons["gameCorrect"])
+        XCTAssertEqual(app.buttons["cameraPreviewToggle"].value as? String, "已收起")
+        keepScreenshot("相机预览自动收起后的游戏界面", from: app)
         // A synthetic Home press alone does not prove backgrounding on Duo.
         // Verify the state transition after switching apps before testing resume.
         XCUIApplication(bundleIdentifier: "com.apple.Preferences").activate()
