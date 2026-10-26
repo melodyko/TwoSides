@@ -6,6 +6,7 @@ struct LobbyView: View {
     var onPreview: () -> Void
     var onCamera: () -> Void
     var cameraEnabled: Bool
+    var cameraStopping: Bool
     var cameraStatus: String
     @Environment(\.dynamicTypeSize) private var typeSize
     @State private var showWordSources = false
@@ -79,11 +80,12 @@ struct LobbyView: View {
                                     .foregroundStyle(PartyTheme.secondary).fixedSize(horizontal: false, vertical: true)
                             }
                             Spacer(minLength: 0)
-                            Button(cameraEnabled ? "关闭" : "开启", action: onCamera)
+                            Button(cameraStopping ? "关闭中…" : cameraEnabled ? "关闭" : "开启", action: onCamera)
                                 .font(.system(.subheadline, design: .rounded).bold())
                                 .padding(.horizontal, 16).frame(minHeight: 44)
                                 .background(PartyTheme.paper, in: Capsule())
                                 .accessibilityIdentifier("cameraToggle")
+                                .disabled(cameraStopping)
                         }
                         Button(action: onPreview) {
                             Label("先看看双方画面", systemImage: "eye")

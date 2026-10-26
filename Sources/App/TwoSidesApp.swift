@@ -15,6 +15,7 @@ struct PartyRootView: View {
     @State private var accessoryEnabled = false
     @State private var accessoryAvailable = false
     @State private var cameraRequested = false
+    @State private var cameraRequestID = 0
     @State private var deviceClosed = false
     @State private var showPreview = false
     @State private var showExitConfirmation = false
@@ -71,14 +72,15 @@ struct PartyRootView: View {
             // Permission prompts temporarily make the scene inactive. Do not cancel
             // their pending camera request; stop only when actually backgrounded.
             if phase == .background { stopCamera() }
-            if phase == .active { accessoryEnabled = camera.isRunning && !deviceClosed }
+            if phase == .active { updateAccessory() }
             updateIdleTimer()
         }
         .onChange(of: game.phase) { _, _ in updateIdleTimer() }
         .onChange(of: camera.isRunning) { wasRunning, running in
             if wasRunning && !running { game.pause() }
-            accessoryEnabled = running && scenePhase == .active && !deviceClosed
+            updateAccessory()
         }
+        .onChange(of: camera.status) { _, _ in updateAccessory() }
         .onChange(of: accessoryEnabled) { wasEnabled, enabled in
             if wasEnabled && !enabled { game.pause() }
         }
@@ -110,7 +112,7 @@ struct PartyRootView: View {
                     } else {
                         // A preview may have been started from the closed-screen
                         // lobby. Opening the inner display makes it eligible again.
-                        accessoryEnabled = camera.isRunning && scenePhase == .active
+                        updateAccessory()
                     }
                 }
         } else {
@@ -132,7 +134,8 @@ struct PartyRootView: View {
                     switch game.phase {
                     case .lobby:
                         LobbyView(game: game, onStart: startMatch, onPreview: { showPreview = true },
-                                  onCamera: toggleCamera, cameraEnabled: camera.isRunning, cameraStatus: cameraStatus)
+                                  onCamera: toggleCamera, cameraEnabled: cameraRequested || camera.isRunning,
+                                  cameraStopping: camera.status == .stopping, cameraStatus: cameraStatus)
                     case .countdown, .playing, .reveal, .paused:
                         if game.phase == .paused { pauseScreen }
                         else { GameView(game: game, onPause: { game.pause() }) }
@@ -142,7 +145,7 @@ struct PartyRootView: View {
                             else { game.startNextTurn() }
                         }, onLobby: { game.returnToLobby() })
                     }
-                    if cameraRequested || camera.isRunning { cameraBar }
+                    if cameraRequested || camera.isRunning || camera.status == .stopping { cameraBar }
                 }
             }
             if scenePhase != .active && game.phase != .lobby {
@@ -168,9 +171,10 @@ struct PartyRootView: View {
                     .foregroundStyle(PartyTheme.secondary).multilineTextAlignment(.center).lineSpacing(5)
                 Button("继续这一轮") { game.resume() }
                     .buttonStyle(PartyButtonStyle()).accessibilityIdentifier("resumeGame")
-                if !camera.isRunning {
+                if !cameraRequested && !camera.isRunning {
                     Button("开启面对面模式", action: toggleCamera)
                         .buttonStyle(PartyButtonStyle(fill: PartyTheme.mint, foreground: PartyTheme.ink))
+                        .disabled(camera.status == .stopping)
                 }
                 if let error = camera.error { Text(error).font(.caption).foregroundStyle(PartyTheme.secondary) }
                 Button("结束并回大厅") { showExitConfirmation = true }
@@ -181,7 +185,7 @@ struct PartyRootView: View {
 
     private var cameraBar: some View {
         HStack(spacing: 12) {
-            CameraPreview(session: camera.session)
+            CameraPreview(controller: camera)
                 .frame(width: 76, height: 64)
                 .background(PartyTheme.ink)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -195,6 +199,8 @@ struct PartyRootView: View {
             Spacer(minLength: 0)
             Button { stopCamera() } label: { Image(systemName: "xmark").frame(width: 44, height: 44) }
                 .accessibilityLabel("关闭相机与外屏")
+                .accessibilityIdentifier("cameraClose")
+                .disabled(camera.status == .stopping)
         }
         .padding(.horizontal, 20).padding(.vertical, 10)
         .background(PartyTheme.paper)
@@ -202,6 +208,7 @@ struct PartyRootView: View {
     }
 
     private var cameraStatus: String {
+        if camera.status == .stopping { return "正在关闭相机与外屏…" }
         if let error = camera.error { return error }
         if camera.status == .requestingPermission { return "等待相机授权…" }
         if camera.status == .starting { return "正在开启实时预览…" }
@@ -214,12 +221,19 @@ struct PartyRootView: View {
     }
 
     private func toggleCamera() {
+        guard camera.status != .stopping else { return }
         if camera.isRunning || cameraRequested { stopCamera(); return }
+        cameraRequestID += 1
+        let requestID = cameraRequestID
         cameraRequested = true
         Task {
+            guard requestID == cameraRequestID, cameraRequested, camera.status != .stopping else { return }
             await camera.start()
-            cameraRequested = camera.isRunning
-            accessoryEnabled = camera.isRunning && scenePhase == .active && !deviceClosed
+            // A permission/start completion from before Close must not reopen
+            // the accessory, especially while the capture session is stopping.
+            guard requestID == cameraRequestID, cameraRequested else { return }
+            if !camera.isRunning { cameraRequested = false }
+            updateAccessory()
         }
     }
 
@@ -231,9 +245,15 @@ struct PartyRootView: View {
     }
 
     private func stopCamera() {
+        cameraRequestID += 1
         accessoryEnabled = false
         cameraRequested = false
         camera.stop()
+    }
+
+    private func updateAccessory() {
+        accessoryEnabled = cameraRequested && camera.status == .running
+            && camera.isRunning && scenePhase == .active && !deviceClosed
     }
 
     private func updateIdleTimer() {

@@ -118,9 +118,90 @@ final class TwoSidesUITests: XCTestCase {
         #endif
     }
 
+    /// Uses the real capture session: the simulator's unavailable-camera path
+    /// cannot expose deadlocks between stopRunning and preview teardown.
+    @MainActor
+    func testDuoCameraAccessoryClosesAndReopensWithoutFreezing() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("需要展开的 Duo 真机来验证相机和外屏关闭与重新开启。")
+        #else
+        let app = launch()
+        let hierarchy = XCTAttachment(string: app.debugDescription)
+        hierarchy.name = "Duo 启动时的窗口与按钮位置"
+        hierarchy.lifetime = .keepAlways
+        add(hierarchy)
+        keepScreenshot("Duo 真机测试起始画面", from: app)
+        addUIInterruptionMonitor(withDescription: "相机权限") { alert in
+            let allow = alert.buttons.matching(NSPredicate(
+                format: "label IN %@", ["允许", "好", "Allow", "OK"]
+            )).firstMatch
+            guard allow.exists else { return false }
+            allow.tap()
+            return true
+        }
+
+        let previewReady = app.staticTexts["外屏已就绪"]
+        for useCloseButton in [true, false, true, false] {
+            tap(app.buttons["cameraToggle"], in: app)
+            XCTAssertTrue(previewReady.waitForExistence(timeout: 15), "展开的 Duo 应启动相机并让外屏就绪")
+            let close = useCloseButton ? app.buttons["cameraClose"] : app.buttons["cameraToggle"]
+            tap(close, in: app)
+            let stopped = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "exists == false"), object: app.buttons["cameraClose"]
+            )
+            XCTAssertEqual(XCTWaiter.wait(for: [stopped], timeout: 10), .completed,
+                           "关闭必须完成，不能卡住主线程")
+            XCTAssertEqual(app.buttons["cameraToggle"].label, "开启")
+            XCTAssertTrue(app.buttons["cameraToggle"].isEnabled)
+
+            // A separate sheet interaction proves that the main UI still responds.
+            tap(app.buttons["previewButton"], in: app)
+            XCTAssertTrue(app.navigationBars["两种视角"].waitForExistence(timeout: 3))
+            app.buttons["明白了"].tap()
+        }
+
+        tap(app.buttons["startGame"], in: app)
+        waitUntilEnabled(app.buttons["gameCorrect"])
+        keepScreenshot("真机重复关闭后仍可游戏", from: app)
+        #endif
+    }
+
+    @MainActor
+    func testDuoCameraBackgroundStopsAndPauses() throws {
+        #if targetEnvironment(simulator)
+        throw XCTSkip("需要 Duo 真机来验证双屏运行中的后台停止。")
+        #else
+        let app = launch()
+        tap(app.buttons["cameraToggle"], in: app)
+        XCTAssertTrue(app.staticTexts["外屏已就绪"].waitForExistence(timeout: 15))
+        tap(app.buttons["startGame"], in: app)
+        waitUntilEnabled(app.buttons["gameCorrect"])
+        // A synthetic Home press alone does not prove backgrounding on Duo.
+        // Verify the state transition after switching apps before testing resume.
+        XCUIApplication(bundleIdentifier: "com.apple.Preferences").activate()
+        let backgrounded = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            app.state == .runningBackground || app.state == .runningBackgroundSuspended
+        }, object: app)
+        XCTAssertEqual(XCTWaiter.wait(for: [backgrounded], timeout: 10), .completed,
+                       "必须先确认应用真的进入后台，才能验证后台停止")
+        app.activate()
+        XCTAssertTrue(app.staticTexts["pausedTitle"].waitForExistence(timeout: 10))
+        let backgroundStopped = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "exists == false"), object: app.buttons["cameraClose"]
+        )
+        XCTAssertEqual(XCTWaiter.wait(for: [backgroundStopped], timeout: 10), .completed)
+        assertAnswersAbsent(in: app)
+        tap(app.buttons["resumeGame"], in: app)
+        waitUntilEnabled(app.buttons["gameCorrect"])
+        keepScreenshot("真机相机后台停止后可继续游戏", from: app)
+        #endif
+    }
+
     @MainActor
     private func launch(arguments: [String] = []) -> XCUIApplication {
+        #if targetEnvironment(simulator)
         XCUIDevice.shared.orientation = .portrait
+        #endif
         let app = XCUIApplication()
         app.launchArguments = ["--ui-testing"] + arguments
         app.launch()
@@ -162,7 +243,13 @@ final class TwoSidesUITests: XCTestCase {
         XCTAssertTrue(element.waitForExistence(timeout: 5), "找不到目标按钮", file: file, line: line)
         for _ in 0..<6 {
             if element.isHittable { break }
+            #if targetEnvironment(simulator)
             if scrollDown { app.swipeDown() } else { app.swipeUp() }
+            #else
+            let scroll = app.scrollViews.firstMatch
+            let surface = scroll.exists ? scroll : app
+            if scrollDown { surface.swipeDown() } else { surface.swipeUp() }
+            #endif
         }
         XCTAssertTrue(element.isHittable, "滚动后按钮仍不可点击", file: file, line: line)
         element.tap()

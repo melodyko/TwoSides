@@ -2,22 +2,33 @@ import AVFoundation
 import SwiftUI
 import UIKit
 
-/// Displays local live video only. It never requests permission or starts capture.
+/// The controller owns connection and teardown timing. Dismantling never waits
+/// for capture and never releases a layer that a capture operation is using.
 struct CameraPreview: UIViewRepresentable {
-    let session: AVCaptureSession
+    let controller: CameraController
+
+    func makeCoordinator() -> Coordinator { Coordinator(controller: controller) }
 
     func makeUIView(context: Context) -> CameraPreviewView {
         let view = CameraPreviewView()
-        view.connect(to: session)
+        context.coordinator.controller.registerPreview(view)
         return view
     }
 
     func updateUIView(_ uiView: CameraPreviewView, context: Context) {
-        uiView.connect(to: session)
+        // Session inspection here would race a pending background start/stop.
     }
 
-    static func dismantleUIView(_ uiView: CameraPreviewView, coordinator: ()) {
-        uiView.disconnect()
+    static func dismantleUIView(_ uiView: CameraPreviewView, coordinator: Coordinator) {
+        coordinator.controller.unregisterPreview(uiView)
+    }
+
+    @MainActor
+    final class Coordinator {
+        // Keep the controller alive through dismantle. Its reconciliation task
+        // then retains both controller and view until the hardware has stopped.
+        let controller: CameraController
+        init(controller: CameraController) { self.controller = controller }
     }
 }
 
@@ -28,8 +39,9 @@ final class CameraPreviewView: UIView {
     private var previewLayer: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
     private var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
     private var rotationObservation: NSKeyValueObservation?
-    private var notifications = CameraNotificationBag()
     private var cameraID: String?
+    private var rotationGeneration = 0
+    private var sessionAccessSuspended = true
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -39,25 +51,52 @@ final class CameraPreviewView: UIView {
         accessibilityLabel = "猜词伙伴的实时相机画面，仅预览，不录制"
     }
 
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) is not supported")
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    /// Called by CameraController with the capture worker idle and stopped.
+    func attachStoppedSession(_ session: AVCaptureSession) {
+        sessionAccessSuspended = true
+        previewLayer.session = session
     }
 
-    func connect(to session: AVCaptureSession) {
-        if previewLayer.session !== session {
-            disconnect()
-            previewLayer.session = session
-            notifications.add(NotificationCenter.default.addObserver(
-                forName: AVCaptureSession.didStartRunningNotification, object: session, queue: .main
-            ) { [weak self] _ in
-                Task { @MainActor [weak self] in self?.configureRotation() }
-            })
+    /// Called only between background operations, using the prepared device
+    /// snapshot instead of reaching into session.inputs from the main thread.
+    func configureStoppedRotation(device: AVCaptureDevice) {
+        guard cameraID != device.uniqueID else { return }
+        rotationGeneration += 1
+        let observationGeneration = rotationGeneration
+        rotationObservation = nil
+        cameraID = device.uniqueID
+        let coordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: previewLayer)
+        rotationCoordinator = coordinator
+        rotationObservation = coordinator.observe(
+            \.videoRotationAngleForHorizonLevelPreview, options: [.initial, .new]
+        ) { [weak self] _, _ in
+            Task { @MainActor [weak self] in
+                guard let self, self.rotationGeneration == observationGeneration else { return }
+                self.applyRotation()
+            }
         }
-        configureRotation()
+        if let connection = previewLayer.connection, connection.isVideoMirroringSupported {
+            connection.automaticallyAdjustsVideoMirroring = false
+            connection.isVideoMirrored = false
+        }
     }
 
-    func disconnect() {
-        notifications = CameraNotificationBag()
+    /// A pure main-actor flag change, safe even while stopRunning is blocked.
+    /// Retain the coordinator and observer until capture has actually stopped.
+    func suspendSessionAccess() { sessionAccessSuspended = true }
+
+    func resumeSessionAccess() {
+        sessionAccessSuspended = false
+        applyRotation()
+    }
+
+    /// The controller strongly holds this view until the worker has returned
+    /// from stopRunning, and prevents a new start until this method finishes.
+    func detachStoppedSession() {
+        sessionAccessSuspended = true
+        rotationGeneration += 1
         rotationObservation = nil
         rotationCoordinator = nil
         cameraID = nil
@@ -66,44 +105,17 @@ final class CameraPreviewView: UIView {
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
-        configureRotation()
-    }
-
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        // The coordinator tracks the layer's display and physical camera rotation,
-        // including transitions between Duo's inner and outer displays.
-        applyRotation()
-    }
-
-    private func configureRotation() {
-        guard let device = (previewLayer.session?.inputs.first as? AVCaptureDeviceInput)?.device else { return }
-        if cameraID != device.uniqueID {
-            cameraID = device.uniqueID
-            rotationObservation = nil
-            let coordinator = AVCaptureDevice.RotationCoordinator(device: device, previewLayer: previewLayer)
-            rotationCoordinator = coordinator
-            rotationObservation = coordinator.observe(
-                \.videoRotationAngleForHorizonLevelPreview, options: [.initial, .new]
-            ) { [weak self] _, _ in
-                // AVFoundation documents delivery on the main queue; an explicit
-                // actor hop also satisfies Swift 6's KVO callback isolation.
-                Task { @MainActor [weak self] in self?.applyRotation() }
-            }
-        }
-        if let connection = previewLayer.connection, connection.isVideoMirroringSupported {
-            connection.automaticallyAdjustsVideoMirroring = false
-            // This preview belongs to the clue giver on the inner display and
-            // shows the partner across the device, rather than a selfie.
-            connection.isVideoMirrored = false
-        }
+        guard window != nil else { return }
         applyRotation()
     }
 
     private func applyRotation() {
-        guard let connection = previewLayer.connection,
+        // Check the flag BEFORE touching connection, session, or coordinator.
+        guard !sessionAccessSuspended, window != nil,
+              let connection = previewLayer.connection,
               let angle = rotationCoordinator?.videoRotationAngleForHorizonLevelPreview,
-              connection.isVideoRotationAngleSupported(angle) else { return }
+              connection.isVideoRotationAngleSupported(angle),
+              connection.videoRotationAngle != angle else { return }
         connection.videoRotationAngle = angle
     }
 }
